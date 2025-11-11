@@ -21,19 +21,13 @@ var rootCmd = &cobra.Command{
 	Long: `vulntechx finds vulnerabilities based on tech stack using nuclei tags or fuzzing with ffuf.
 
 Examples:
-  # Step 1, subdomain enumeration and subdomain probing and find tech stack
-  subfinder -d hackerone.com -all -duc -silent | httpx -duc -silent -nc -mc 200 -t 300 -td | unew httpx.txt
+  echo "hackerone.com" | vulntechx nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
+  cat subs.txt | vulntechx nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
+  cat techx-output.json | vulntechx nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
 
-  # Step 2, convert httpx output to json
-  cat httpx.txt | vulntechx httpxjson -o httpxjson-output.json
-
-  # Step 3, find vulnerabilities based on tech using nuclei
-  vulntechx nuclei --file httpxjson-output.json --nucleicmd "nuclei -duc -nc -t ~/nucleihub-templates -tags {tech} -es unknown,info,low" --parallel 10 --process --append nuclei-output.txt
-
-  # or
-  vulntechx nuclei --file httpxjson-output.json --nucleicmd "nuclei -duc -nc -t ~/nucleihub-templates -tc {tech} -es unknown,info,low" --parallel 10 --process --append nuclei-output.txt
-
-  # Step 4, find vulnerabilities based on tech using fuzzing with ffuf
+  echo "hackerone.com" | vulntechx httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
+  cat subs.txt | vulntechx httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
+  cat techx-output.json | vulntechx httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Check if the version flag is set
