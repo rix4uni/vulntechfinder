@@ -1,4 +1,4 @@
-module github.com/rix4uni/vulntechx
+module github.com/rix4uni/vulntechfinder
 
 go 1.25.1
 

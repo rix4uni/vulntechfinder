@@ -10,24 +10,24 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/rix4uni/vulntechx/banner"
+	"github.com/rix4uni/vulntechfinder/banner"
 	"github.com/spf13/cobra"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "vulntechx",
+	Use:   "vulntechfinder",
 	Short: "find vulnerabilities based on tech stack using nuclei or ffuf",
-	Long: `vulntechx finds vulnerabilities based on tech stack using nuclei tags or fuzzing with ffuf.
+	Long: `vulntechfinder finds vulnerabilities based on tech stack using nuclei tags or fuzzing with ffuf.
 
 Examples:
-  echo "hackerone.com" | vulntechx nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
-  cat subs.txt | vulntechx nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
-  cat techx-output.json | vulntechx nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
+  echo "hackerone.com" | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
+  cat subs.txt | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
+  cat techx-output.json | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
 
-  echo "hackerone.com" | vulntechx httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
-  cat subs.txt | vulntechx httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
-  cat techx-output.json | vulntechx httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
+  echo "hackerone.com" | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
+  cat subs.txt | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
+  cat techx-output.json | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Check if the version flag is set
@@ -63,23 +63,23 @@ func checkAndUpdateTool() {
 		return
 	}
 
-	fmt.Printf("Updating vulntechx from version %s to %s...\n", currentVersion, latestVersion)
-	cmd := exec.Command("go", "install", "github.com/rix4uni/vulntechx@latest")
+	fmt.Printf("Updating vulntechfinder from version %s to %s...\n", currentVersion, latestVersion)
+	cmd := exec.Command("go", "install", "github.com/rix4uni/vulntechfinder@latest")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	err = cmd.Run()
 	if err != nil {
-		fmt.Println("Error updating vulntechx:", err)
+		fmt.Println("Error updating vulntechfinder:", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("vulntechx has been updated to the latest version.")
+	fmt.Println("vulntechfinder has been updated to the latest version.")
 }
 
-// Function to get the current version by executing 'vulntechx -v'
+// Function to get the current version by executing 'vulntechfinder -v'
 func getCurrentVersion() (string, error) {
-	cmd := exec.Command("vulntechx", "-v")
+	cmd := exec.Command("vulntechfinder", "-v")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	err := cmd.Run()
@@ -88,7 +88,7 @@ func getCurrentVersion() (string, error) {
 	}
 
 	// Use regex to find the version string in the output
-	re := regexp.MustCompile(`Current vulntechx version (v[0-9]+\.[0-9]+\.[0-9]+)`)
+	re := regexp.MustCompile(`Current vulntechfinder version (v[0-9]+\.[0-9]+\.[0-9]+)`)
 	matches := re.FindStringSubmatch(out.String())
 	if len(matches) < 2 {
 		return "", fmt.Errorf("current version not found in output")
@@ -99,7 +99,7 @@ func getCurrentVersion() (string, error) {
 // Function to get the latest version from the specified URL
 func getLatestVersion() (string, error) {
 	// Fetch the latest version from the banner.go file
-	resp, err := http.Get("https://raw.githubusercontent.com/rix4uni/vulntechx/refs/heads/main/banner/banner.go")
+	resp, err := http.Get("https://raw.githubusercontent.com/rix4uni/vulntechfinder/refs/heads/main/banner/banner.go")
 	if err != nil {
 		return "", err
 	}
@@ -138,6 +138,6 @@ func Execute() {
 
 func init() {
 	// Define flags
-	rootCmd.Flags().BoolP("update", "u", false, "update vulntechx to latest version")
+	rootCmd.Flags().BoolP("update", "u", false, "update vulntechfinder to latest version")
 	rootCmd.Flags().BoolP("version", "v", false, "Print the version of the tool and exit.")
 }

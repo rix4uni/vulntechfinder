@@ -29,11 +29,11 @@ var httpxCmd = &cobra.Command{
 	Long: `The 'httpx' command reads JSON (objects with {"host":..., "tech":[...]}) from stdin, or if the stdin doesn't contain JSON it will run the external 'techx -silent -json' command (feeding stdin to techx) and consume its JSON output.
 
 Examples:
-  echo "hackerone.com" | vulntechx httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
+  echo "hackerone.com" | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
 
-  cat subs.txt | vulntechx httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
+  cat subs.txt | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
 
-  cat techx-output.json | vulntechx httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
+  cat techx-output.json | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		httpxCmdStr, _ := cmd.Flags().GetString("cmd")
@@ -45,7 +45,7 @@ Examples:
 		includeTech, _ := cmd.Flags().GetString("include-tech")
 
 		if httpxCmdStr == "" {
-			fmt.Println("Usage: vulntechx httpx --cmd <httpx command> [--parallel N] [--output file]")
+			fmt.Println("Usage: vulntechfinder httpx --cmd <httpx command> [--parallel N] [--output file]")
 			os.Exit(1)
 		}
 

@@ -27,11 +27,11 @@ var nucleiCmd = &cobra.Command{
   Long: `The 'nuclei' command reads JSON (objects with {"host":..., "tech":[...]}) from stdin, or if the stdin doesn't contain JSON it will run the external 'techx -silent -json' command (feeding stdin to techx) and consume its JSON output.
 
 Examples:
-  echo "hackerone.com" | vulntechx nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
+  echo "hackerone.com" | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
 
-  cat subs.txt | vulntechx nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
+  cat subs.txt | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
 
-  cat techx-output.json | vulntechx nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
+  cat techx-output.json | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
 `,
   Run: func(cmd *cobra.Command, args []string) {
     nucleiCmdStr, _ := cmd.Flags().GetString("cmd")
@@ -43,7 +43,7 @@ Examples:
     includeTech, _ := cmd.Flags().GetString("include-tech")
 
     if nucleiCmdStr == "" {
-      fmt.Println("Usage: vulntechx nuclei --cmd <nuclei command> [--parallel N] [--output file]")
+      fmt.Println("Usage: vulntechfinder nuclei --cmd <nuclei command> [--parallel N] [--output file]")
       os.Exit(1)
     }
 
