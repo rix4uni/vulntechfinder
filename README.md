@@ -37,14 +37,6 @@ cd vulntechfinder; go install
 
 ## 🔧 Usage
 ```yaml
-                __        __               __
- _   __ __  __ / /____   / /_ ___   _____ / /_   _  __
-| | / // / / // // __ \ / __// _ \ / ___// __ \ | |/_/
-| |/ // /_/ // // / / // /_ /  __// /__ / / / /_>  <
-|___/ \__,_//_//_/ /_/ \__/ \___/ \___//_/ /_//_/|_|
-
-                            Current vulntechfinder version v0.0.6
-
 vulntechfinder finds vulnerabilities based on tech stack using nuclei tags or fuzzing with ffuf.
 
 Examples:
