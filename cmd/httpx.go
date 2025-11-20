@@ -25,15 +25,15 @@ type HttpxTechData struct {
 // httpxCmd represents the httpx command
 var httpxCmd = &cobra.Command{
 	Use:   "httpx",
-	Short: "Run httpx scans on multiple hosts in parallel, filtering by technology stack (reads JSON from stdin or runs techx).",
-	Long: `The 'httpx' command reads JSON (objects with {"host":..., "tech":[...]}) from stdin, or if the stdin doesn't contain JSON it will run the external 'techx -silent -json' command (feeding stdin to techx) and consume its JSON output.
+	Short: "Run httpx scans on multiple hosts in parallel, filtering by technology stack (reads JSON from stdin or runs techfinder).",
+	Long: `The 'httpx' command reads JSON (objects with {"host":..., "tech":[...]}) from stdin, or if the stdin doesn't contain JSON it will run the external 'techfinder -silent -json' command (feeding stdin to techfinder) and consume its JSON output.
 
 Examples:
   echo "hackerone.com" | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
 
   cat subs.txt | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
 
-  cat techx-output.json | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
+  cat techfinder-output.json | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
 `,
 	Run: func(cmd *cobra.Command, args []string) {
 		httpxCmdStr, _ := cmd.Flags().GetString("cmd")
@@ -97,7 +97,7 @@ Examples:
 
 		var reader io.Reader
 
-		// Detect if stdin already contains JSON (starts with [ or {). If not, run techx -silent -json
+		// Detect if stdin already contains JSON (starts with [ or {). If not, run techfinder -silent -json
 		if strings.HasPrefix(trimmed, "[") || strings.HasPrefix(trimmed, "{") {
 			if verbose {
 				fmt.Println("Detected JSON on stdin — parsing directly.")
@@ -105,14 +105,14 @@ Examples:
 			reader = strings.NewReader(string(stdinBytes))
 		} else {
 			if verbose {
-				fmt.Println("No JSON detected on stdin — running 'techx -silent -json' and piping stdin to it.")
+				fmt.Println("No JSON detected on stdin — running 'techfinder -silent -json' and piping stdin to it.")
 			}
-			// Run techx -silent -json, feeding stdinBytes into its stdin, and capture stdout
-			techxCmd := exec.Command("sh", "-c", "techx -silent -json")
-			techxCmd.Stdin = strings.NewReader(string(stdinBytes))
-			out, err := techxCmd.Output()
+			// Run techfinder -silent -json, feeding stdinBytes into its stdin, and capture stdout
+			techfinderCmd := exec.Command("sh", "-c", "techfinder -silent -json")
+			techfinderCmd.Stdin = strings.NewReader(string(stdinBytes))
+			out, err := techfinderCmd.Output()
 			if err != nil {
-				fmt.Printf("Error running techx: %s\n", err)
+				fmt.Printf("Error running techfinder: %s\n", err)
 				os.Exit(1)
 			}
 			reader = strings.NewReader(string(out))

@@ -4,12 +4,12 @@ vulntechfinder is a powerful security tool that automates vulnerability scanning
 
 ## 🚀 Key Features
 
-- **🔍 Automated Tech Stack Detection**: Seamlessly integrates with `techx` to identify technologies running on target hosts
+- **🔍 Automated Tech Stack Detection**: Seamlessly integrates with `techfinder` to identify technologies running on target hosts
 - **⚡ Parallel Processing**: Configurable parallel execution (default: 50) for high-performance scanning
 - **🎯 Smart Filtering**: Include/exclude specific technologies using comma-separated lists or file inputs
 - **📊 Multiple Output Formats**: Save results to files while maintaining real-time console output
 - **🛠️ Tool Agnostic**: Works with any security tool that accepts technology tags or file paths
-- **🔧 Flexible Input**: Accepts raw domains, host lists, or pre-processed techx JSON output
+- **🔧 Flexible Input**: Accepts raw domains, host lists, or pre-processed techfinder JSON output
 - **👀 Real-time Monitoring**: Verbose and process flags for detailed debugging and progress tracking
 
 ## 📦 Installation
@@ -42,11 +42,11 @@ vulntechfinder finds vulnerabilities based on tech stack using nuclei tags or fu
 Examples:
   echo "hackerone.com" | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
   cat subs.txt | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
-  cat techx-output.json | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
+  cat techfinder-output.json | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
 
   echo "hackerone.com" | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
   cat subs.txt | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
-  cat techx-output.json | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
+  cat techfinder-output.json | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
 
 Usage:
   vulntechfinder [flags]
@@ -55,8 +55,8 @@ Usage:
 Available Commands:
   completion  Generate the autocompletion script for the specified shell
   help        Help about any command
-  httpx       Run httpx scans on multiple hosts in parallel, filtering by technology stack (reads JSON from stdin or runs techx).
-  nuclei      Run Nuclei scans on multiple hosts in parallel, filtering by technology stack (reads JSON from stdin or runs techx).
+  httpx       Run httpx scans on multiple hosts in parallel, filtering by technology stack (reads JSON from stdin or runs techfinder).
+  nuclei      Run Nuclei scans on multiple hosts in parallel, filtering by technology stack (reads JSON from stdin or runs techfinder).
 
 Flags:
   -h, --help      help for vulntechfinder
@@ -93,8 +93,8 @@ vulntechfinder nuclei --cmd "nuclei [options] -tags {tech}" [flags]
 # Scan from domain list
 cat domains.txt | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech}" --parallel 20
 
-# Use existing techx JSON output
-cat techx-results.json | vulntechfinder nuclei --cmd "nuclei -tags {tech}" --output results.txt
+# Use existing techfinder JSON output
+cat techfinder-results.json | vulntechfinder nuclei --cmd "nuclei -tags {tech}" --output results.txt
 
 # Include only specific technologies
 cat domains.txt | vulntechfinder nuclei --include-tech wordpress,joomla --cmd "nuclei -tags {tech}"
@@ -140,8 +140,8 @@ cat hosts.txt | vulntechfinder httpx --include-tech jenkins,gitlab --cmd "httpx 
 
 ## 🛠️ How It Works
 
-1. **Input Processing**: Reads hosts from stdin or existing techx JSON output
-2. **Tech Detection**: Automatically runs `techx` if JSON isn't provided
+1. **Input Processing**: Reads hosts from stdin or existing techfinder JSON output
+2. **Tech Detection**: Automatically runs `techfinder` if JSON isn't provided
 3. **Technology Filtering**: Applies include/exclude filters to technologies
 4. **Command Execution**: Replaces `{tech}` placeholder in your command template
 5. **Parallel Scanning**: Executes scans concurrently with configurable limits
@@ -160,7 +160,7 @@ vulntechfinder accepts multiple input formats:
 
 - **Raw domains/hosts**: `echo "example.com" | vulntechfinder nuclei ...`
 - **Domain lists**: `cat domains.txt | vulntechfinder nuclei ...`
-- **techx JSON**: `cat techx-output.json | vulntechfinder nuclei ...`
+- **techfinder JSON**: `cat techfinder-output.json | vulntechfinder nuclei ...`
 
 ## Technology Placeholders
 
@@ -172,13 +172,13 @@ The `{tech}` placeholder in your command template gets replaced with:
 
 - Start with `--parallel 10` and increase based on system resources
 - Use `--verbose` for debugging when first setting up commands
-- Combine with `techx` for optimal technology detection
+- Combine with `techfinder` for optimal technology detection
 - Use `--output` to save all results for later analysis
 - Test commands directly before using with vulntechfinder
 
 ## 🔧 Troubleshooting
 
-- Ensure `techx` is installed and in PATH for automatic tech detection
+- Ensure `techfinder` is installed and in PATH for automatic tech detection
 - Verify your command template works when `{tech}` is manually replaced
 - Use `--verbose` to see detailed processing information
-- Check that input formats match expected JSON structure when piping techx output
+- Check that input formats match expected JSON structure when piping techfinder output
