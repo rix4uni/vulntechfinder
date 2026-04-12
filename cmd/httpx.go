@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"strconv"
 	"sync"
@@ -139,12 +138,12 @@ Examples:
 		resumePath := filepath.Join(cwd, "resume.cfg")
 		start := 0
 		if noResume {
-			_ = deleteResume(resumePath)
+			_ = httpxdeleteResume(resumePath)
 			if verbose {
 				fmt.Fprintln(os.Stderr, "Starting fresh; resume disabled (--no-resume)")
 			}
 		} else {
-			if s, err := loadResume(resumePath); err == nil {
+			if s, err := httpxloadResume(resumePath); err == nil {
 				start = s
 				if start > 0 && verbose {
 					fmt.Fprintf(os.Stderr, "Resuming from scanned=%d (skipping %d items)\n", start, start)
@@ -165,7 +164,7 @@ Examples:
 		}()
 
 		if !noResume {
-			_ = saveResume(resumePath, start)
+			_ = httpxsaveResume(resumePath, start)
 		}
 
 		decoder := json.NewDecoder(reader)
@@ -217,7 +216,7 @@ Examples:
 					if _, ok := pending[nextLocal]; ok {
 						delete(pending, nextLocal)
 						nextLocal++
-						_ = saveResume(resumePath, nextLocal)
+						_ = httpxsaveResume(resumePath, nextLocal)
 					} else {
 						break
 					}
@@ -383,7 +382,7 @@ Examples:
 		close(doneCh)
 		<-collectorDone
 		if ctx.Err() == nil {
-			_ = deleteResume(resumePath)
+			_ = httpxdeleteResume(resumePath)
 		}
 		if interrupted {
 			fmt.Fprintln(os.Stderr, "Progress saved to resume.cfg. Re-run the same command to resume, or use --no-resume to start over.")
@@ -458,7 +457,7 @@ func init() {
 }
 
 // Resume helpers
-func loadResume(path string) (int, error) {
+func httpxloadResume(path string) (int, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return 0, err
@@ -481,7 +480,7 @@ func loadResume(path string) (int, error) {
 	return 0, nil
 }
 
-func saveResume(path string, scanned int) error {
+func httpxsaveResume(path string, scanned int) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
@@ -497,7 +496,7 @@ func saveResume(path string, scanned int) error {
 	return os.Rename(tmp, path)
 }
 
-func deleteResume(path string) error {
+func httpxdeleteResume(path string) error {
 	if _, err := os.Stat(path); err == nil {
 		return os.Remove(path)
 	}
