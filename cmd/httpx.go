@@ -2,14 +2,18 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"path/filepath"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"strconv"
 	"sync"
 
 	"github.com/spf13/cobra"
@@ -43,6 +47,7 @@ Examples:
 		Output, _ := cmd.Flags().GetString("output")
 		excludeTech, _ := cmd.Flags().GetString("exclude-tech")
 		includeTech, _ := cmd.Flags().GetString("include-tech")
+		noResume, _ := cmd.Flags().GetBool("no-resume")
 
 		if httpxCmdStr == "" {
 			fmt.Println("Usage: vulntechfinder httpx --cmd <httpx command> [--parallel N] [--output file]")
@@ -129,18 +134,103 @@ Examples:
 			defer outputFile.Close()
 		}
 
-		decoder := json.NewDecoder(reader)
-		var wg sync.WaitGroup
-		semaphore := make(chan struct{}, parallel) // Limit the number of parallel executions
-
-		for {
-			var HttpxtechData HttpxTechData
-			if err := decoder.Decode(&HttpxtechData); err == io.EOF {
-				break
-			} else if err != nil {
-				fmt.Printf("Error decoding JSON: %s\n", err)
-				os.Exit(1)
+		// Resume + context
+		cwd, _ := os.Getwd()
+		resumePath := filepath.Join(cwd, "resume.cfg")
+		start := 0
+		if noResume {
+			_ = deleteResume(resumePath)
+			if verbose {
+				fmt.Fprintln(os.Stderr, "Starting fresh; resume disabled (--no-resume)")
 			}
+		} else {
+			if s, err := loadResume(resumePath); err == nil {
+				start = s
+				if start > 0 && verbose {
+					fmt.Fprintf(os.Stderr, "Resuming from scanned=%d (skipping %d items)\n", start, start)
+				}
+			}
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, os.Interrupt)
+		interrupted := false
+		go func() {
+			<-sigCh
+			interrupted = true
+			fmt.Fprintln(os.Stderr, "\nInterrupt received. Cancelling pending tasks and saving progress...")
+			cancel()
+		}()
+
+		if !noResume {
+			_ = saveResume(resumePath, start)
+		}
+
+		decoder := json.NewDecoder(reader)
+		type item struct{ index int; data HttpxTechData }
+		items := make(chan item, parallel)
+		doneCh := make(chan int, parallel*2)
+		var wg sync.WaitGroup
+		semaphore := make(chan struct{}, parallel)
+
+		// Producer
+		go func() {
+			defer close(items)
+			idx := 0
+			for {
+				var td HttpxTechData
+				if err := decoder.Decode(&td); err == io.EOF {
+					break
+				} else if err != nil {
+					fmt.Printf("Error decoding JSON: %s\n", err)
+					os.Exit(1)
+				}
+				if td.Tech == nil {
+					if verbose {
+						fmt.Printf("Skipping URL with tech field as null: %s\n", td.Host)
+					}
+					idx++
+					continue
+				}
+				if idx >= start {
+					select {
+					case items <- item{index: idx, data: td}:
+					case <-ctx.Done():
+						return
+					}
+				}
+				idx++
+			}
+		}()
+
+		// Collector
+		nextLocal := start
+		pending := make(map[int]struct{})
+		collectorDone := make(chan struct{})
+		go func() {
+			defer close(collectorDone)
+			for idx := range doneCh {
+				pending[idx] = struct{}{}
+				for {
+					if _, ok := pending[nextLocal]; ok {
+						delete(pending, nextLocal)
+						nextLocal++
+						_ = saveResume(resumePath, nextLocal)
+					} else {
+						break
+					}
+				}
+			}
+		}()
+
+		for it := range items {
+			if ctx.Err() != nil {
+				break
+			}
+			HttpxtechData := it.data
+			idx := it.index
 
 			// Skip processing if tech is nil
 			if HttpxtechData.Tech == nil {
@@ -200,9 +290,10 @@ Examples:
 
 				wg.Add(1)
 				semaphore <- struct{}{} // acquire
-				go func(host, techName string) {
+				go func(host, techName string, index int) {
 					defer wg.Done()
 					defer func() { <-semaphore }() // release
+					if ctx.Err() != nil { return }
 
 					// Build command string for this techName
 					var cmdStr string
@@ -281,11 +372,22 @@ Examples:
 					if err := cmd.Wait(); err != nil && verbose {
 						fmt.Printf("Error waiting for httpx command for %s (%s): %s\n", host, techName, err)
 					}
-				}(HttpxtechData.Host, tech)
+					if ctx.Err() == nil {
+						select { case doneCh <- index: case <-ctx.Done(): }
+					}
+				}(HttpxtechData.Host, tech, idx)
 			}
 		}
 
 		wg.Wait() // Wait for all goroutines to finish
+		close(doneCh)
+		<-collectorDone
+		if ctx.Err() == nil {
+			_ = deleteResume(resumePath)
+		}
+		if interrupted {
+			fmt.Fprintln(os.Stderr, "Progress saved to resume.cfg. Re-run the same command to resume, or use --no-resume to start over.")
+		}
 	},
 }
 
@@ -352,4 +454,52 @@ func init() {
 	httpxCmd.Flags().StringP("output", "o", "", "File to save output")
 	httpxCmd.Flags().StringP("exclude-tech", "e", "", "Comma-separated list of technologies to exclude, or path to a file with technologies (one per line)")
 	httpxCmd.Flags().StringP("include-tech", "i", "", "Comma-separated list of technologies to include (only these will be processed), or path to a file with technologies (one per line)")
+	httpxCmd.Flags().Bool("no-resume", false, "Disable resume functionality and start scanning fresh")
+}
+
+// Resume helpers
+func loadResume(path string) (int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "scanned=") {
+			val := strings.TrimPrefix(line, "scanned=")
+			n, err := strconv.Atoi(strings.TrimSpace(val))
+			if err == nil && n >= 0 {
+				return n, nil
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, err
+	}
+	return 0, nil
+}
+
+func saveResume(path string, scanned int) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	data := []byte(fmt.Sprintf("scanned=%d\n", scanned))
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		return err
+	}
+	if _, err := os.Stat(path); err == nil {
+		_ = os.Remove(path)
+	}
+	return os.Rename(tmp, path)
+}
+
+func deleteResume(path string) error {
+	if _, err := os.Stat(path); err == nil {
+		return os.Remove(path)
+	}
+	return nil
 }

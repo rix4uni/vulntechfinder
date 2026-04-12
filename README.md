@@ -11,6 +11,7 @@ vulntechfinder is a powerful security tool that automates vulnerability scanning
 - **🛠️ Tool Agnostic**: Works with any security tool that accepts technology tags or file paths
 - **🔧 Flexible Input**: Accepts raw domains, host lists, or pre-processed techfinder JSON output
 - **👀 Real-time Monitoring**: Verbose and process flags for detailed debugging and progress tracking
+- **♻️ Crash-Safe Resume**: Default-on resume with `resume.cfg`; use `--no-resume` on subcommands to start fresh
 
 ## 📦 Installation
 
@@ -21,9 +22,9 @@ go install github.com/rix4uni/vulntechfinder@latest
 
 ### Option 2: Download Prebuilt Binaries
 ```
-wget https://github.com/rix4uni/vulntechfinder/releases/download/v0.0.6/vulntechfinder-linux-amd64-0.0.6.tgz
-tar -xvzf vulntechfinder-linux-amd64-0.0.6.tgz
-rm -rf vulntechfinder-linux-amd64-0.0.6.tgz
+wget https://github.com/rix4uni/vulntechfinder/releases/download/v0.0.7/vulntechfinder-linux-amd64-0.0.7.tgz
+tar -xvzf vulntechfinder-linux-amd64-0.0.7.tgz
+rm -rf vulntechfinder-linux-amd64-0.0.7.tgz
 mv vulntechfinder ~/go/bin/vulntechfinder
 ```
 
@@ -101,6 +102,9 @@ cat domains.txt | vulntechfinder nuclei --include-tech wordpress,joomla --cmd "n
 
 # Exclude technologies from file
 cat domains.txt | vulntechfinder nuclei --exclude-tech excluded-techs.txt --cmd "nuclei -tags {tech}"
+
+# Start fresh without resuming
+cat domains.txt | vulntechfinder nuclei --no-resume --cmd "nuclei -tags {tech}"
 ```
 
 ### httpx Command
@@ -121,6 +125,9 @@ cat targets.txt | vulntechfinder httpx --cmd "httpx -path {tech}" --output httpx
 
 # Filter technologies during scanning
 cat hosts.txt | vulntechfinder httpx --include-tech jenkins,gitlab --cmd "httpx -path {tech}"
+
+# Start fresh without resuming
+cat hosts.txt | vulntechfinder httpx --no-resume --cmd "httpx -path {tech}"
 ```
 
 ## 📊 Command Flags
@@ -146,6 +153,19 @@ cat hosts.txt | vulntechfinder httpx --include-tech jenkins,gitlab --cmd "httpx 
 4. **Command Execution**: Replaces `{tech}` placeholder in your command template
 5. **Parallel Scanning**: Executes scans concurrently with configurable limits
 6. **Output Handling**: Saves results to file while displaying real-time progress
+
+## ♻️ Resume & Interrupt Handling
+
+- Default-on resume saves progress to a `resume.cfg` in the current directory in the form:
+
+```
+scanned=300000
+```
+
+- Re-run the same command in the same directory to resume; the scanner skips the first `scanned` items and continues.
+- Use `--no-resume` on subcommands to start from scratch.
+- On successful completion, `resume.cfg` is deleted automatically.
+- On CTRL+C, pending tasks are cancelled gracefully and progress is saved before exiting with a helpful resume hint.
 
 ## 📁 File Structure & Paths
 

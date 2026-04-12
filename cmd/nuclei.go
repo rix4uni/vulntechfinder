@@ -2,12 +2,16 @@ package cmd
 
 import (
   "bufio"
+  "context"
   "encoding/json"
   "fmt"
   "io"
   "io/ioutil"
+  "path/filepath"
   "os"
   "os/exec"
+  "os/signal"
+  "strconv"
   "strings"
   "sync"
 
@@ -41,6 +45,7 @@ Examples:
     Output, _ := cmd.Flags().GetString("output")
     excludeTech, _ := cmd.Flags().GetString("exclude-tech")
     includeTech, _ := cmd.Flags().GetString("include-tech")
+    noResume, _ := cmd.Flags().GetBool("no-resume")
 
     if nucleiCmdStr == "" {
       fmt.Println("Usage: vulntechfinder nuclei --cmd <nuclei command> [--parallel N] [--output file]")
@@ -127,32 +132,111 @@ Examples:
       defer outputFile.Close()
     }
 
-    decoder := json.NewDecoder(reader)
-    var wg sync.WaitGroup
-    semaphore := make(chan struct{}, parallel) // Limit the number of parallel executions
-
-    for {
-      var techData TechData
-      if err := decoder.Decode(&techData); err == io.EOF {
-        break
-      } else if err != nil {
-        fmt.Printf("Error decoding JSON: %s\n", err)
-        os.Exit(1)
+    // Resume + interrupt handling
+    cwd, _ := os.Getwd()
+    resumePath := filepath.Join(cwd, "resume.cfg")
+    start := 0
+    if noResume {
+      _ = deleteResume(resumePath)
+      if verbose {
+        fmt.Fprintln(os.Stderr, "Starting fresh; resume disabled (--no-resume)")
       }
-
-      // Skip processing if tech is nil
-      if techData.Tech == nil {
-        if verbose {
-          fmt.Printf("Skipping URL with tech field as null: %s\n", techData.Host)
+    } else {
+      if s, err := loadResume(resumePath); err == nil {
+        start = s
+        if start > 0 && verbose {
+          fmt.Fprintf(os.Stderr, "Resuming from scanned=%d (skipping %d items)\n", start, start)
         }
-        continue
       }
+    }
 
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    sigCh := make(chan os.Signal, 1)
+    signal.Notify(sigCh, os.Interrupt)
+    interrupted := false
+    go func() {
+      <-sigCh
+      interrupted = true
+      fmt.Fprintln(os.Stderr, "\nInterrupt received. Cancelling pending tasks and saving progress...")
+      cancel()
+    }()
+
+    if !noResume {
+      _ = saveResume(resumePath, start)
+    }
+
+    decoder := json.NewDecoder(reader)
+    type item struct{ index int; data TechData }
+    items := make(chan item, parallel)
+    doneCh := make(chan int, parallel*2)
+    var wg sync.WaitGroup
+    semaphore := make(chan struct{}, parallel)
+
+    // Producer: decode JSON and send items, skipping first 'start'
+    go func() {
+      defer close(items)
+      idx := 0
+      for {
+        var td TechData
+        if err := decoder.Decode(&td); err == io.EOF {
+          break
+        } else if err != nil {
+          fmt.Printf("Error decoding JSON: %s\n", err)
+          os.Exit(1)
+        }
+        if td.Tech == nil {
+          if verbose {
+            fmt.Printf("Skipping URL with tech field as null: %s\n", td.Host)
+          }
+          idx++
+          continue
+        }
+        if idx >= start {
+          select {
+          case items <- item{index: idx, data: td}:
+          case <-ctx.Done():
+            return
+          }
+        }
+        idx++
+      }
+    }()
+
+    // Collector to persist contiguous progress
+    nextLocal := start
+    pending := make(map[int]struct{})
+    collectorDone := make(chan struct{})
+    go func() {
+      defer close(collectorDone)
+      for idx := range doneCh {
+        pending[idx] = struct{}{}
+        for {
+          if _, ok := pending[nextLocal]; ok {
+            delete(pending, nextLocal)
+            nextLocal++
+            _ = saveResume(resumePath, nextLocal)
+          } else {
+            break
+          }
+        }
+      }
+    }()
+
+    for it := range items {
+      if ctx.Err() != nil {
+        break
+      }
+      td := it.data
+      idx := it.index
       wg.Add(1)
-      semaphore <- struct{}{} // Acquire a semaphore
-      go func(techData TechData) {
+      semaphore <- struct{}{}
+      go func(techData TechData, index int) {
         defer wg.Done()
-        defer func() { <-semaphore }() // Release the semaphore
+        defer func() { <-semaphore }()
+        if ctx.Err() != nil {
+          return
+        }
 
         // Process tech field with include/exclude logic
         var techs []string
@@ -215,6 +299,9 @@ Examples:
         stdoutPipe, _ := cmd.StdoutPipe()
         stderrPipe, _ := cmd.StderrPipe()
 
+        if ctx.Err() != nil {
+          return
+        }
         if err := cmd.Start(); err != nil {
           if verbose {
             fmt.Printf("Error starting nuclei command: %s\n", err)
@@ -243,11 +330,28 @@ Examples:
         if err := cmd.Wait(); err != nil && verbose {
           fmt.Printf("Error waiting for nuclei command: %s\n", err)
         }
-
-      }(techData)
+        if ctx.Err() == nil {
+          select {
+          case doneCh <- index:
+          case <-ctx.Done():
+          }
+        }
+      }(td, idx)
     }
 
-    wg.Wait() // Wait for all goroutines to finish
+    wg.Wait()
+    close(doneCh)
+    <-collectorDone
+
+    // Cleanup resume file and messaging
+    if ctx.Err() == nil {
+      // We don't know total items cheaply; leave resume.cfg if unknown? We can remove if no pending map entries before nextLocal
+      // Here, keep resume.cfg unless fully consumed by consumer; simple approach: remove when not interrupted and items channel drained
+      _ = deleteResume(resumePath)
+    }
+    if interrupted {
+      fmt.Fprintln(os.Stderr, "Progress saved to resume.cfg. Re-run the same command to resume, or use --no-resume to start over.")
+    }
   },
 }
 
@@ -305,4 +409,52 @@ func init() {
   nucleiCmd.Flags().StringP("output", "o", "", "File to save output")
   nucleiCmd.Flags().StringP("exclude-tech", "e", "", "Comma-separated list of technologies to exclude, or path to a file with technologies (one per line)")
   nucleiCmd.Flags().StringP("include-tech", "i", "", "Comma-separated list of technologies to include (only these will be processed), or path to a file with technologies (one per line)")
+  nucleiCmd.Flags().Bool("no-resume", false, "Disable resume functionality and start scanning fresh")
+}
+
+// Resume helpers
+func loadResume(path string) (int, error) {
+  f, err := os.Open(path)
+  if err != nil {
+    return 0, err
+  }
+  defer f.Close()
+  scanner := bufio.NewScanner(f)
+  for scanner.Scan() {
+    line := strings.TrimSpace(scanner.Text())
+    if strings.HasPrefix(line, "scanned=") {
+      val := strings.TrimPrefix(line, "scanned=")
+      n, err := strconv.Atoi(strings.TrimSpace(val))
+      if err == nil && n >= 0 {
+        return n, nil
+      }
+    }
+  }
+  if err := scanner.Err(); err != nil {
+    return 0, err
+  }
+  return 0, nil
+}
+
+func saveResume(path string, scanned int) error {
+  dir := filepath.Dir(path)
+  if err := os.MkdirAll(dir, 0755); err != nil {
+    return err
+  }
+  tmp := path + ".tmp"
+  data := []byte(fmt.Sprintf("scanned=%d\n", scanned))
+  if err := os.WriteFile(tmp, data, 0644); err != nil {
+    return err
+  }
+  if _, err := os.Stat(path); err == nil {
+    _ = os.Remove(path)
+  }
+  return os.Rename(tmp, path)
+}
+
+func deleteResume(path string) error {
+  if _, err := os.Stat(path); err == nil {
+    return os.Remove(path)
+  }
+  return nil
 }
