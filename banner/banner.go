@@ -5,7 +5,7 @@ import (
 )
 
 // prints the version message
-const version = "v0.0.7"
+const version = "v0.0.8"
 
 func PrintVersion() {
 	fmt.Printf("Current vulntechfinder version %s\n", version)
@@ -13,8 +13,7 @@ func PrintVersion() {
 
 // Prints the Colorful banner
 func PrintBanner() {
-	banner := `
-                __        __               __     ____ _             __           
+	banner := `		__        __               __     ____ _             __           
  _   __ __  __ / /____   / /_ ___   _____ / /_   / __/(_)____   ____/ /___   _____
 | | / // / / // // __ \ / __// _ \ / ___// __ \ / /_ / // __ \ / __  // _ \ / ___/
 | |/ // /_/ // // / / // /_ /  __// /__ / / / // __// // / / // /_/ //  __// /    

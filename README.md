@@ -1,204 +1,73 @@
 ## vulntechfinder
 
-vulntechfinder is a powerful security tool that automates vulnerability scanning based on technology stack detection. It intelligently processes hosts through tech stack identification and executes targeted scans using tools like Nuclei and httpx.
+Automated vulnerability scanning based on detected technology stacks
 
-## 🚀 Key Features
+## Installation
 
-- **🔍 Automated Tech Stack Detection**: Seamlessly integrates with `techfinder` to identify technologies running on target hosts
-- **⚡ Parallel Processing**: Configurable parallel execution (default: 50) for high-performance scanning
-- **🎯 Smart Filtering**: Include/exclude specific technologies using comma-separated lists or file inputs
-- **📊 Multiple Output Formats**: Save results to files while maintaining real-time console output
-- **🛠️ Tool Agnostic**: Works with any security tool that accepts technology tags or file paths
-- **🔧 Flexible Input**: Accepts raw domains, host lists, or pre-processed techfinder JSON output
-- **👀 Real-time Monitoring**: Verbose and process flags for detailed debugging and progress tracking
-- **♻️ Crash-Safe Resume**: Default-on resume with `resume.cfg`; use `--no-resume` on subcommands to start fresh
-
-## 📦 Installation
-
-### Option 1: Install via Go
+### Install via Go
 ```
 go install github.com/rix4uni/vulntechfinder@latest
 ```
 
-### Option 2: Download Prebuilt Binaries
+### Download Prebuilt Binaries
 ```
-wget https://github.com/rix4uni/vulntechfinder/releases/download/v0.0.7/vulntechfinder-linux-amd64-0.0.7.tgz
-tar -xvzf vulntechfinder-linux-amd64-0.0.7.tgz
-rm -rf vulntechfinder-linux-amd64-0.0.7.tgz
+wget https://github.com/rix4uni/vulntechfinder/releases/download/v0.0.8/vulntechfinder-linux-amd64-0.0.8.tgz
+tar -xvzf vulntechfinder-linux-amd64-0.0.8.tgz
+rm -rf vulntechfinder-linux-amd64-0.0.8.tgz
 mv vulntechfinder ~/go/bin/vulntechfinder
 ```
 
-Download other platform binaries from [releases page](https://github.com/rix4uni/vulntechfinder/releases).
+Download other platform binaries from the [releases page](https://github.com/rix4uni/vulntechfinder/releases).
 
-### Option 3: Compile from Source
+### Compile from Source
 ```
 git clone --depth 1 https://github.com/rix4uni/vulntechfinder.git
 cd vulntechfinder; go install
 ```
 
-## 🔧 Usage
-```yaml
-vulntechfinder finds vulnerabilities based on tech stack using nuclei tags or fuzzing with ffuf.
-
-Examples:
-  echo "hackerone.com" | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
-  cat subs.txt | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
-  cat techfinder-output.json | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
-
-  echo "hackerone.com" | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
-  cat subs.txt | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
-  cat techfinder-output.json | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
-
-Usage:
-  vulntechfinder [flags]
-  vulntechfinder [command]
-
-Available Commands:
-  completion  Generate the autocompletion script for the specified shell
-  help        Help about any command
-  httpx       Run httpx scans on multiple hosts in parallel, filtering by technology stack (reads JSON from stdin or runs techfinder).
-  nuclei      Run Nuclei scans on multiple hosts in parallel, filtering by technology stack (reads JSON from stdin or runs techfinder).
-
-Flags:
-  -h, --help      help for vulntechfinder
-  -u, --update    update vulntechfinder to latest version
-  -v, --version   Print the version of the tool and exit.
-
-Use "vulntechfinder [command] --help" for more information about a command.
+## Usage
+```console
+Usage of vulntechfinder:
+      --cmd string       Command template with {tech} placeholder to execute (e.g. 'nuclei -tags {tech}')
+      --exclude string   Comma-separated list or file path of technologies to exclude
+      --include string   Comma-separated list or file path of technologies to include (only these are scanned)
+      --no-resume        Disable resume functionality and start a fresh scan
+      --output string    File path to save the output results
+      --parallel int     Number of concurrent parallel processes (default 50)
+      --process          Display the command being executed for each host
+      --silent           Silent mode.
+      --verbose          Enable verbose output for debugging
+      --version          Print the tool version and exit
 ```
 
-## 🎯 Quick Start
+## Usage Examples
 
-### Nuclei Scanning
-```yaml
-echo "hackerone.com" | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech} -es unknown,info,low" --parallel 10 --output nuclei-output.txt
+### Basic Scanning with Nuclei
+```console
+echo "hackerone.com" | vulntechfinder --cmd "nuclei -tags {tech}"
 ```
 
-### HTTPx Fuzzing
-```yaml
-echo "hackerone.com" | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 10 --output httpx-output.txt
+### Piping Subdomains / Host List
+```console
+cat subs.txt | vulntechfinder --cmd "nuclei -tags {tech}"
 ```
 
-## 📋 Command Reference
-
-### nuclei Command
-Run Nuclei scans filtered by technology stack.
-
-**Usage:**
-```yaml
-vulntechfinder nuclei --cmd "nuclei [options] -tags {tech}" [flags]
+### Using techfinder JSON Output
+```console
+cat techfinder.json | vulntechfinder --cmd "nuclei -tags {tech}"
 ```
 
-**Examples:**
-```yaml
-# Scan from domain list
-cat domains.txt | vulntechfinder nuclei --cmd "nuclei -duc -t ~/nuclei-templates -tags {tech}" --parallel 20
-
-# Use existing techfinder JSON output
-cat techfinder-results.json | vulntechfinder nuclei --cmd "nuclei -tags {tech}" --output results.txt
-
-# Include only specific technologies
-cat domains.txt | vulntechfinder nuclei --include-tech wordpress,joomla --cmd "nuclei -tags {tech}"
-
-# Exclude technologies from file
-cat domains.txt | vulntechfinder nuclei --exclude-tech excluded-techs.txt --cmd "nuclei -tags {tech}"
-
-# Start fresh without resuming
-cat domains.txt | vulntechfinder nuclei --no-resume --cmd "nuclei -tags {tech}"
+### Include Technologies
+```console
+cat domains.txt | vulntechfinder --include included-techs.txt --cmd "nuclei -tags {tech}"
 ```
 
-### httpx Command
-Run httpx scans with technology-specific path fuzzing.
-
-**Usage:**
-```yaml
-vulntechfinder httpx --cmd "httpx [options] -path {tech}" [flags]
+### Exclude Technologies
+```console
+cat domains.txt | vulntechfinder --exclude excluded-techs.txt --cmd "nuclei -tags {tech}"
 ```
 
-**Examples:**
-```yaml
-# Fuzz with technology-specific wordlists
-cat subdomains.txt | vulntechfinder httpx --cmd "httpx -duc -silent -path {tech}" --parallel 15
-
-# Use custom wordlists directory
-cat targets.txt | vulntechfinder httpx --cmd "httpx -path {tech}" --output httpx-results.txt
-
-# Filter technologies during scanning
-cat hosts.txt | vulntechfinder httpx --include-tech jenkins,gitlab --cmd "httpx -path {tech}"
-
-# Start fresh without resuming
-cat hosts.txt | vulntechfinder httpx --no-resume --cmd "httpx -path {tech}"
+### Custom Nuclei Flags
+```console
+cat subs.txt | vulntechfinder --cmd "nuclei --silent -tags {tech} -es info,low,unknown"
 ```
-
-## 📊 Command Flags
-
-### Common Flags
-- `--cmd string`**: Command template with `{tech}` placeholder (required)
-- `--parallel int`**: Number of parallel processes (default: 50)
-- `--output string`**: Output file to save results
-- `--verbose`**: Enable verbose debugging output
-- `--process`**: Show which URLs are being processed
-
-### Technology Filtering Flags
-- `--include-tech string`**: Comma-separated list or file of technologies to include
-- `--exclude-tech string`**: Comma-separated list or file of technologies to exclude
-
-**Note:** `--include-tech` and `--exclude-tech` cannot be used together.
-
-## 🛠️ How It Works
-
-1. **Input Processing**: Reads hosts from stdin or existing techfinder JSON output
-2. **Tech Detection**: Automatically runs `techfinder` if JSON isn't provided
-3. **Technology Filtering**: Applies include/exclude filters to technologies
-4. **Command Execution**: Replaces `{tech}` placeholder in your command template
-5. **Parallel Scanning**: Executes scans concurrently with configurable limits
-6. **Output Handling**: Saves results to file while displaying real-time progress
-
-## ♻️ Resume & Interrupt Handling
-
-- Default-on resume saves progress to a `resume.cfg` in the current directory in the form:
-
-```
-scanned=300000
-```
-
-- Re-run the same command in the same directory to resume; the scanner skips the first `scanned` items and continues.
-- Use `--no-resume` on subcommands to start from scratch.
-- On successful completion, `resume.cfg` is deleted automatically.
-- On CTRL+C, pending tasks are cancelled gracefully and progress is saved before exiting with a helpful resume hint.
-
-## 📁 File Structure & Paths
-
-### Default Wordlist Directory
-HTTPx command automatically checks:
-- `/root/wordlists/{tech}`
-- `/root/wordlists/{tech}.txt`
-
-## Input Formats
-
-vulntechfinder accepts multiple input formats:
-
-- **Raw domains/hosts**: `echo "example.com" | vulntechfinder nuclei ...`
-- **Domain lists**: `cat domains.txt | vulntechfinder nuclei ...`
-- **techfinder JSON**: `cat techfinder-output.json | vulntechfinder nuclei ...`
-
-## Technology Placeholders
-
-The `{tech}` placeholder in your command template gets replaced with:
-- **nuclei**: Comma-separated technology tags
-- **httpx**: Path to technology-specific wordlist or inline technology name
-
-## Best Practices
-
-- Start with `--parallel 10` and increase based on system resources
-- Use `--verbose` for debugging when first setting up commands
-- Combine with `techfinder` for optimal technology detection
-- Use `--output` to save all results for later analysis
-- Test commands directly before using with vulntechfinder
-
-## 🔧 Troubleshooting
-
-- Ensure `techfinder` is installed and in PATH for automatic tech detection
-- Verify your command template works when `{tech}` is manually replaced
-- Use `--verbose` to see detailed processing information
-- Check that input formats match expected JSON structure when piping techfinder output
