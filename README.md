@@ -4,6 +4,11 @@ Automated vulnerability scanning based on detected technology stacks
 
 ## Installation
 
+### Prerequisites
+```
+go install github.com/rix4uni/techfinder@latest
+```
+
 ### Install via Go
 ```
 go install github.com/rix4uni/vulntechfinder@latest
